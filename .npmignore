@@ -62,4 +62,9 @@ typings/
 
 yarn.lock
 
-lib/
+src/
+__tests__/
+.vscode/
+.babelrc
+.eslint*
+gulpfile.js
