@@ -80,6 +80,8 @@ export default class Model {
     let opts = await runHook(this, "beforeCount", undefined, options);
     const ql = this.createQueryString(opts);
     ql.addFunction("count", Object.keys(this.schema.fields)[0]);
+    ql.subQuery();
+    ql.addFunction("sum", "count");
     const results = await this.inflx.query(ql.toSelect(), {
       precision: options.precision,
       retentionPolicy: options.retentionPolicy,
@@ -87,34 +89,39 @@ export default class Model {
     });
     let fullCount = 0;
     if (results.length > 0) {
-      fullCount = results[0].count;
+      fullCount = results[0].sum;
     }
     return runHook(this, "afterCount", undefined, fullCount, opts);
   }
   static async createBulk(records = [], options) {
-    let r = await runHook(this, "beforeCreateBulk", undefined, records, options = {});
-    const conn = this.inflx.getConnection();
-    await conn.writePoints(r.map((record) => {
-      return {
-        measurement: this.schema.measurement,
-        tags: this.schema.tags.reduce((o, tag) => {
-          if (record[tag]) {
-            o[tag] = record[tag];
-          }
-          return o;
-        }, {}),
-        fields: Object.keys(this.schema.fields).reduce((o, f) => {
-          if (record[f]) {
-            o[f] = record[f];
-          }
-          return o;
-        }, {}),
-      };
-    }), {
-      database: options.database,
-      precision: options.precision,
-      retentionPolicy: options.retentionPolicy,
-    });
-    return runHook(this, "afterCreateBulk", undefined, records, options);
+    try {
+      let r = await runHook(this, "beforeCreateBulk", undefined, records, options = {});
+      const conn = this.inflx.getConnection();
+      await conn.writePoints(r.map((record) => {
+        return {
+          measurement: this.schema.measurement,
+          tags: this.schema.tags.reduce((o, tag) => {
+            if (record[tag]) {
+              o[tag] = record[tag];
+            }
+            return o;
+          }, {}),
+          fields: Object.keys(this.schema.fields).reduce((o, f) => {
+            if (record[f]) {
+              o[f] = record[f];
+            }
+            return o;
+          }, {}),
+        };
+      }), {
+        database: options.database,
+        precision: options.precision,
+        retentionPolicy: options.retentionPolicy,
+      });
+      return runHook(this, "afterCreateBulk", undefined, records, options);
+    } catch (err) {
+      console.log("ERRR", err);
+    }
+    return undefined;
   }
 }
