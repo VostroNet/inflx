@@ -106,7 +106,7 @@ export default class Model {
             }
             return o;
           }, {}),
-          fields: Object.keys(this.schema.fields).reduce((o, f) => {
+          fields: Object.keys(this.schema.fields).concat(["time"]).reduce((o, f) => {
             if (record[f]) {
               o[f] = record[f];
             }
