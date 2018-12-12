@@ -21,6 +21,11 @@ export default class InfluxORM {
     this.config = config;
     this.models = {};
   }
+  async reset() {
+    const conn = this.getConnection();
+    await conn.dropDatabase(this.config.database);
+    return conn.createDatabase(this.config.database);
+  }
   async sync() {
     const {retentionPolicies, continuousQueries} = this.config;
     const conn = this.getConnection();

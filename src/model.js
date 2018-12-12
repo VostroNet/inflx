@@ -46,8 +46,8 @@ export default class Model {
     ql.order = options.order;
     ql.fill = options.fill;
     ql.addMeasurement(this.schema.measurement);
-    // ql.addField.apply(ql, Object.keys(this.schema.fields));
-    // ql.addField.apply(ql, this.schema.tags);
+    ql.addField.apply(ql, Object.keys(this.schema.fields));
+    ql.addField.apply(ql, this.schema.tags);
     if ((options.groups || []).length > 0) {
       options.groups.map((g) => ql.addGroup(g));
     }
@@ -94,34 +94,31 @@ export default class Model {
     return runHook(this, "afterCount", undefined, fullCount, opts);
   }
   static async createBulk(records = [], options) {
-    try {
-      let r = await runHook(this, "beforeCreateBulk", undefined, records, options = {});
-      const conn = this.inflx.getConnection();
-      await conn.writePoints(r.map((record) => {
-        return {
-          measurement: this.schema.measurement,
-          tags: this.schema.tags.reduce((o, tag) => {
-            if (record[tag]) {
-              o[tag] = record[tag];
-            }
-            return o;
-          }, {}),
-          fields: Object.keys(this.schema.fields).concat(["time"]).reduce((o, f) => {
-            if (record[f]) {
-              o[f] = record[f];
-            }
-            return o;
-          }, {}),
-        };
-      }), {
-        database: options.database,
-        precision: options.precision,
-        retentionPolicy: options.retentionPolicy,
-      });
-      return runHook(this, "afterCreateBulk", undefined, records, options);
-    } catch (err) {
-      console.log("ERRR", err);
-    }
-    return undefined;
+    let r = await runHook(this, "beforeCreateBulk", undefined, records, options = {});
+    const conn = this.inflx.getConnection();
+    const newData = r.map((record) => {
+      return {
+        measurement: this.schema.measurement,
+        tags: this.schema.tags.reduce((o, tag) => {
+          if (record[tag] !== undefined) {
+            o[tag] = record[tag];
+          }
+          return o;
+        }, {}),
+        fields: Object.keys(this.schema.fields).reduce((o, f) => {
+          if (record[f] !== undefined) {
+            o[f] = record[f];
+          }
+          return o;
+        }, {}),
+        timestamp: record.time,
+      };
+    });
+    await conn.writePoints(newData, {
+      database: options.database,
+      precision: options.precision,
+      retentionPolicy: options.retentionPolicy,
+    });
+    return runHook(this, "afterCreateBulk", undefined, records, options);
   }
 }
