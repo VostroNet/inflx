@@ -3,13 +3,22 @@ import processWhereOperators from "./where";
 import waterfall from "./waterfall";
 
 
-async function runHook(model, hookName, context, initialArg, ...extra) {
+async function runHook(model, hookName, options = {}, context, initialArg, ...extra) {
+  let hooks = [].concat();
   if (model.hooks) {
     if (model.hooks[hookName]) {
-      return waterfall(Array.isArray(this.hooks[hookName]) ? this.hooks[hookName] : [this.hooks[hookName]], (hook, prevVal) => {
-        return hook.apply(context, [prevVal].concat(extra || []));
-      }, initialArg);
+      hooks = hooks.concat(model.hooks[hookName]);
     }
+  }
+  if (options.hooks) {
+    if (options.hooks[hookName]) {
+      hooks = hooks.concat(options.hooks[hookName]);
+    }
+  }
+  if (hooks.length > 0) {
+    return waterfall(hooks, (hook, prevVal) => {
+      return hook.apply(context, [prevVal].concat(extra || []));
+    }, initialArg);
   }
   return initialArg;
 }
@@ -46,8 +55,8 @@ export default class Model {
     ql.order = options.order;
     ql.fill = options.fill;
     ql.addMeasurement(this.schema.measurement);
-    ql.addField.apply(ql, Object.keys(this.schema.fields));
-    ql.addField.apply(ql, this.schema.tags);
+    // ql.addField.apply(ql, Object.keys(this.schema.fields));
+    // ql.addField.apply(ql, this.schema.tags);
     if ((options.groups || []).length > 0) {
       options.groups.map((g) => ql.addGroup(g));
     }
@@ -57,9 +66,9 @@ export default class Model {
     return ql;
   }
   static async findAll(options) {
-    let opts = await runHook(this, "beforeFindInitOpts", undefined, options);
+    let opts = await runHook(this, "beforeFindInitial", options, undefined, options);
     const ql = this.createQueryString(opts);
-    await runHook(this, "beforeFind", undefined, opts, ql);
+    await runHook(this, "beforeFind", options, undefined, opts, ql);
     // ql.addField.apply(ql, Object.keys(this.schema.fields));
     // ql.addField.apply(ql, this.schema.tags);
     const results = await this.inflx.query(ql.toSelect(), {
@@ -73,15 +82,17 @@ export default class Model {
     } else {
       models = results;
     }
-    return runHook(this, "afterFind", undefined, models, opts);
+    return runHook(this, "afterFind", options, undefined, models, opts);
   }
 
   static async count(options) {
-    let opts = await runHook(this, "beforeCount", undefined, options);
+    let opts = await runHook(this, "beforeCountInitial", options, undefined, options);
     const ql = this.createQueryString(opts);
+    await runHook(this, "beforeCount", options, undefined, options, ql);
     ql.addFunction("count", Object.keys(this.schema.fields)[0]);
     ql.subQuery();
     ql.addFunction("sum", "count");
+    await runHook(this, "beforeCountArgsSet", options, undefined, options, ql);
     const results = await this.inflx.query(ql.toSelect(), {
       precision: options.precision,
       retentionPolicy: options.retentionPolicy,
@@ -91,10 +102,10 @@ export default class Model {
     if (results.length > 0) {
       fullCount = results[0].sum;
     }
-    return runHook(this, "afterCount", undefined, fullCount, opts);
+    return runHook(this, "afterCount", options, undefined, fullCount, opts);
   }
   static async createBulk(records = [], options) {
-    let r = await runHook(this, "beforeCreateBulk", undefined, records, options = {});
+    let r = await runHook(this, "beforeCreateBulk", options, undefined, records, options = {});
     const conn = this.inflx.getConnection();
     const newData = r.map((record) => {
       return {
@@ -119,6 +130,6 @@ export default class Model {
       precision: options.precision,
       retentionPolicy: options.retentionPolicy,
     });
-    return runHook(this, "afterCreateBulk", undefined, records, options);
+    return runHook(this, "afterCreateBulk", options, undefined, records, options);
   }
 }
