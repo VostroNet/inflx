@@ -111,13 +111,13 @@ export default class Model {
       return {
         measurement: this.schema.measurement,
         tags: this.schema.tags.reduce((o, tag) => {
-          if (record[tag] !== undefined) {
+          if (record[tag] !== undefined && record[tag] !== "") {
             o[tag] = record[tag];
           }
           return o;
         }, {}),
         fields: Object.keys(this.schema.fields).reduce((o, f) => {
-          if (record[f] !== undefined) {
+          if (record[f] !== undefined && record[f] !== "") {
             o[f] = record[f];
           }
           return o;
@@ -125,11 +125,15 @@ export default class Model {
         timestamp: record.time,
       };
     });
-    await conn.writePoints(newData, {
-      database: options.database,
-      precision: options.precision,
-      retentionPolicy: options.retentionPolicy,
-    });
+    try {
+      await conn.writePoints(newData, {
+        database: options.database,
+        precision: options.precision,
+        retentionPolicy: options.retentionPolicy,
+      });
+    } catch(err) {
+      console.log("influx error", err);
+    }
     return runHook(this, "afterCreateBulk", options, undefined, records, options);
   }
 }
