@@ -1,4 +1,5 @@
 import * as Influx from "influx";
+import InfluxQL from "influx-ql";
 import Model from "./model";
 import Operators from "./operators";
 
@@ -11,12 +12,14 @@ export const Types = Influx.FieldType;
 export const Precision = Influx.Precision;
 export const escape = Influx.escape;
 export const Op = Operators;
+export const QL = InfluxQL;
 
 export default class InfluxORM {
   static Types = Influx.FieldType;
   static Precision = Influx.Precision;
   static escape = Influx.escape;
   static Op = Operators;
+  static QL = InfluxQL;
   constructor(config) {
     this.config = config;
     this.models = {};

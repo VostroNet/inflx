@@ -47,6 +47,8 @@ function createQuerySection(op) {
   let value;
   if (typeof op.value === "number") {
     value = op.value;
+  } else if (op.value instanceof Date) {
+    value = Influx.escape.stringLit(op.value.toISOString());
   } else {
     value = Influx.escape.stringLit(op.value);
   }
@@ -78,8 +80,11 @@ function processVar(ql, value, validFields, key, parentKey, relationSymbol = Op.
   let operator = symbolMap[opSymbol];
   let relation = symbolMap[relationSymbol];
   let k = typeof key === "string" ? key : parentKey;
-  if (typeof value === "string" || typeof value === "number") {
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean" ) {
     return ql.where(k, value, relation, operator);
+  }
+  if (value instanceof Date) {
+    return ql.where(k, value.toISOString(), relation, operator);
   }
   if (Array.isArray(value)) {
     const fields = value.reduce((o, v) => {
