@@ -36,6 +36,6 @@
   "dependencies": {
     "debug": "^4.1.0",
     "influx": "^5.0.7",
-    "influx-ql": "^2.8.0"
+    "influx-ql": "^2.9.0"
   }
 }
